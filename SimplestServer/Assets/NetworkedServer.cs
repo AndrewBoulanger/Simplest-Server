@@ -67,7 +67,7 @@ public class NetworkedServer : MonoBehaviour
     
     private void ProcessRecievedMsg(string msg, int id)
     {
-        Debug.Log("msg recieved = " + msg + ".  connection id = " + id);
+        Debug.Log("msg received = " + msg + ".  connection id = " + id);
     }
 
 }
