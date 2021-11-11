@@ -81,14 +81,14 @@ public class NetworkedServer : MonoBehaviour
     {
         Debug.Log("msg received = " + msg + ".  connection id = " + id + " frame: " + Time.frameCount);
 
-        string[] cvs = msg.Split(',');
+        string[] csv = msg.Split(',');
 
-        int signifier = int.Parse(cvs[0]);
-        string n = cvs[1];
-        string p = cvs[2];
+        int signifier = int.Parse(csv[0]);
 
         if (signifier == ClientToServerSignifiers.CreateAccount)
         {
+            string n = csv[1];
+            string p = csv[2];
             bool nameIsInUse = searchAccountsByName(n, out PlayerAccount temp);
 
             if(nameIsInUse)
@@ -103,6 +103,8 @@ public class NetworkedServer : MonoBehaviour
         }
         else if(signifier == ClientToServerSignifiers.Login)
         {
+            string n = csv[1];
+            string p = csv[2];
             PlayerAccount accountToCheck = null;
             searchAccountsByName(n, out accountToCheck);
 
@@ -129,20 +131,39 @@ public class NetworkedServer : MonoBehaviour
                  SendMessageToClient(ServerToClientSignifiers.GameStart + "", gr.playerId1);
                 SendMessageToClient(ServerToClientSignifiers.GameStart + "", gr.playerId2);
                 playerWaitingForMatchWithId = -1;
+
+                //decide who gets the first turn
+                bool player1GoesFirst = Random.Range(0,2) == 0;
+                if(player1GoesFirst)
+                    SendMessageToClient(ServerToClientSignifiers.ChosenAsPlayerOne + "", gr.playerId1);
+                else
+                    SendMessageToClient(ServerToClientSignifiers.ChosenAsPlayerOne + "", gr.playerId2);
             }
         }
         else if(signifier == ClientToServerSignifiers.SelectedTicTacToeSquare)
         {
+            string newMsg = ServerToClientSignifiers.OpponentChoseASquare + "," + csv[1];
+            RelayMessageFromPlayerToOtherPlayer(id, newMsg);
+
+        }
+        else if(signifier == ClientToServerSignifiers.LeavingGameRoom)
+        {
             GameRoom gr = GetGameRoomFromClientID(id);
-
-            if(gr != null)
-            {
-                if(gr.playerId1 == id)
-                    SendMessageToClient(ServerToClientSignifiers.OpponentPlay + ",Opponent played", gr.playerId2);
-                else
-                    SendMessageToClient(ServerToClientSignifiers.OpponentPlay + ",Opponent played", gr.playerId1);
+            if (gr != null && !gr.gameHasEnded)
+            { 
+                string newMsg = ServerToClientSignifiers.OpponentLeftRoomEarly + "";
+                RelayMessageFromPlayerToOtherPlayer(id, newMsg, gr);
             }
-
+        }
+        else if(signifier == ClientToServerSignifiers.WonTicTacToe)
+        {
+            string newMsg = ServerToClientSignifiers.OpponentWonTicTacToe + ""; 
+            RelayMessageFromPlayerToOtherPlayer(id, newMsg);
+        }
+        else if(signifier == ClientToServerSignifiers.GameTied)
+        {
+            string newMsg = ServerToClientSignifiers.GameTied + "";
+            RelayMessageFromPlayerToOtherPlayer(id, newMsg);
         }
 
     }
@@ -201,6 +222,17 @@ public class NetworkedServer : MonoBehaviour
         return null;
     }
 
+    void RelayMessageFromPlayerToOtherPlayer(int fromId, string msg, GameRoom gr = null)
+    {
+        if(gr == null)
+            gr = GetGameRoomFromClientID(fromId);
+
+        if(gr != null)
+        {
+            int toID = (fromId == gr.playerId1) ? gr.playerId2 : gr.playerId1;
+            SendMessageToClient(msg, toID);
+        }
+    }
 }
 
 
@@ -210,6 +242,10 @@ public static class ClientToServerSignifiers
     public const int Login = 2;
     public const int JoinGameRoomQueue = 3;
     public const int SelectedTicTacToeSquare = 4;
+
+    public const int WonTicTacToe = 5;
+    public const int GameTied = 6;
+    public const int LeavingGameRoom = 7;
 }
 
 public static class ServerToClientSignifiers
@@ -220,8 +256,13 @@ public static class ServerToClientSignifiers
     public const int AccountCreated = 3;
     public const int AccountCreationFailed = 4;
 
-    public const int OpponentPlay = 5;
-    public const int GameStart = 6;
+    public const int GameStart = 5;
+
+    public const int ChosenAsPlayerOne = 6;
+    public const int OpponentChoseASquare = 7;
+    public const int OpponentLeftRoomEarly = 8;
+    public const int OpponentWonTicTacToe = 9;
+    public const int GameTied = 10;
 }
 
 
@@ -242,7 +283,7 @@ public class PlayerAccount
 public class GameRoom
 {
     public int playerId1, playerId2;
-
+    public bool gameHasEnded = false;
     public GameRoom(int id1, int id2)
     {
         playerId1 = id1;
