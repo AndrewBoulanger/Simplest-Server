@@ -165,6 +165,12 @@ public class NetworkedServer : MonoBehaviour
             string newMsg = ServerToClientSignifiers.GameTied + "";
             RelayMessageFromPlayerToOtherPlayer(id, newMsg);
         }
+        else if(signifier == ClientToServerSignifiers.ChatLogMessage)
+        {
+            string newMsg = ServerToClientSignifiers.ChatLogMessage + ","  + csv[1];
+            RelayMessageFromPlayerToOtherPlayer(id, newMsg);
+            
+        }
 
     }
 
@@ -246,6 +252,7 @@ public static class ClientToServerSignifiers
     public const int WonTicTacToe = 5;
     public const int GameTied = 6;
     public const int LeavingGameRoom = 7;
+    public const int ChatLogMessage = 8;
 }
 
 public static class ServerToClientSignifiers
@@ -263,6 +270,7 @@ public static class ServerToClientSignifiers
     public const int OpponentLeftRoomEarly = 8;
     public const int OpponentWonTicTacToe = 9;
     public const int GameTied = 10;
+    public const int ChatLogMessage = 11;
 }
 
 
