@@ -127,9 +127,15 @@ public class NetworkedServer : MonoBehaviour
             else
             {
                 GameRoom gr = new GameRoom(playerWaitingForMatchWithId, id );
+
+                if(gameRooms.Count == 0)
+                    gr.gameRoomID = 0;
+                else
+                    gr.gameRoomID = gameRooms.Last.Value.gameRoomID + 1;
+
                 gameRooms.AddLast(gr);
-                 SendMessageToClient(ServerToClientSignifiers.GameStart + "", gr.playerId1);
-                SendMessageToClient(ServerToClientSignifiers.GameStart + "", gr.playerId2);
+                 SendMessageToClient(ServerToClientSignifiers.GameStart + "," + gr.gameRoomID, gr.playerId1);
+                SendMessageToClient(ServerToClientSignifiers.GameStart + "," + gr.gameRoomID, gr.playerId2);
                 playerWaitingForMatchWithId = -1;
 
                 //decide who gets the first turn
@@ -270,7 +276,10 @@ public static class ServerToClientSignifiers
     public const int OpponentLeftRoomEarly = 8;
     public const int OpponentWonTicTacToe = 9;
     public const int GameTied = 10;
+
     public const int ChatLogMessage = 11;
+
+    public const int EnteredGameRoom = 12;
 }
 
 
@@ -290,11 +299,16 @@ public class PlayerAccount
 
 public class GameRoom
 {
+    public int gameRoomID;
     public int playerId1, playerId2;
     public bool gameHasEnded = false;
+
+    public List<int> observerIds;
     public GameRoom(int id1, int id2)
     {
         playerId1 = id1;
         playerId2 = id2;
+
+        observerIds = new List<int>();
     }
 }
