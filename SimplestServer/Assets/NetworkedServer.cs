@@ -65,7 +65,19 @@ public class NetworkedServer : MonoBehaviour
                 break;
             case NetworkEventType.DisconnectEvent:
                 Debug.Log("Disconnection, " + recConnectionID);
-                ProcessRecievedMsg(ClientToServerSignifiers.EndingTheGame + "," + "Other player left early", recConnectionID);
+
+                if(recConnectionID == playerWaitingForMatchWithId)
+                    playerWaitingForMatchWithId = -1;
+                else
+                {
+                    GameRoom gr = GetGameRoomFromClientIDIncludeObservers(recConnectionID);
+                    if (gr != null)
+                    {
+                        if ((gr.playerId1 == recConnectionID || gr.playerId2 == recConnectionID) && gr.gameHasEnded == false)
+                            ProcessRecievedMsg(ClientToServerSignifiers.EndingTheGame + "," + "Other player left early", recConnectionID);
+                        RemoveClientFromGameRoom(gr, recConnectionID);
+                    }
+                }
                 break;
         }
 
@@ -159,11 +171,12 @@ public class NetworkedServer : MonoBehaviour
             string newMsg = ServerToClientSignifiers.GameIsOver + "," + csv[1];
             GameRoom gr = GetGameRoomFromClientID(id);
             SendMessegeToRestOfRoom(gr, id, newMsg);
+            gr.gameHasEnded = true;
         }
         else if(signifier == ClientToServerSignifiers.ChatLogMessage)
         {
             string newMsg = ServerToClientSignifiers.ChatLogMessage + ","  + csv[1];
-            GameRoom gr = GetGameRoomFromClientID(id, true);
+            GameRoom gr = GetGameRoomFromClientIDIncludeObservers(id);
             SendMessegeToRestOfRoom(gr, id, newMsg);
         }
         else if(signifier == ClientToServerSignifiers.JoinAnyRoomAsObserver)
@@ -182,8 +195,28 @@ public class NetworkedServer : MonoBehaviour
             if(specifiedRoom !=null)
                 EnterGameRoomAsObserver(specifiedRoom, id);
         }
+        else if(signifier == ClientToServerSignifiers.LeaveTheRoom)
+        {
+            if(id == playerWaitingForMatchWithId)
+            {
+                playerWaitingForMatchWithId = -1;
+                return;
+            }
+
+            GameRoom gr = GetGameRoomFromClientIDIncludeObservers(id);
+
+            if(gr != null)
+                RemoveClientFromGameRoom(gr, id);
+        }
 
     }
+
+
+
+    /// Helper Functions
+    /// 
+  
+   //login/username functions
 
     private bool searchAccountsByName(string name, out PlayerAccount account)
     {
@@ -229,21 +262,31 @@ public class NetworkedServer : MonoBehaviour
         sr.Close();
     }
 
-    private GameRoom GetGameRoomFromClientID(int id, bool checkObservers = false)
+    //finding game room functions
+    //
+
+    //checks each room's playerIDs if they match the given id
+    private GameRoom GetGameRoomFromClientID(int id)
     {
         foreach(GameRoom gr in gameRooms)
         {
             if(gr.playerId1 == id || gr.playerId2 == id)
                 return gr;
+        }
+        return null;
+    }
 
-            if(checkObservers)
+    //checks all ids in each room to find the given id
+    private GameRoom GetGameRoomFromClientIDIncludeObservers(int id)
+    {
+        foreach (GameRoom gr in gameRooms)
+        {
+            foreach (int observerId in gr.observerIds)
             {
-                foreach (int observerId in gr.observerIds)
-                {
-                    if (observerId == id)
-                        return gr;
-                }
+                if (observerId == id)
+                    return gr;
             }
+
         }
         return null;
     }
@@ -258,19 +301,18 @@ public class NetworkedServer : MonoBehaviour
         return null;
     }
 
+
+
     void SendMessegeToRestOfRoom(GameRoom gr, int fromID, string msg)
     {
-        if(fromID != gr.playerId1)
-            SendMessageToClient(msg, gr.playerId1);
-        if (fromID != gr.playerId2)
-            SendMessageToClient(msg, gr.playerId2);
-
         foreach(int id in gr.observerIds)
         {
             if(id != fromID)
                  SendMessageToClient(msg, id);
         }
     }
+
+
 
     void EnterGameRoomAsObserver(GameRoom gr, int playerId)
     {
@@ -282,6 +324,24 @@ public class NetworkedServer : MonoBehaviour
         }
         SendMessageToClient(msg, playerId);
     }
+    void RemoveClientFromGameRoom(GameRoom gr, int id)
+    {
+        int index = -1;
+        for(int i = 0; i < gr.observerIds.Count; i++)
+        {
+            if(gr.observerIds[i] == id)
+            { 
+                index = i;
+                break;
+            }
+        }
+        if(index != -1)
+            gr.observerIds.RemoveAt(index);
+
+        if(gr.observerIds.Count == 0)
+            gameRooms.Remove(gr);
+    }
+
 }
 
 
@@ -298,6 +358,7 @@ public static class ClientToServerSignifiers
     public const int JoinSpecificRoomAsObserver = 10;
 
     public const int EndingTheGame = 11;
+    public const int LeaveTheRoom = 12;
 }
 
 public static class ServerToClientSignifiers
@@ -351,6 +412,8 @@ public class GameRoom
         playerId2 = id2;
 
         observerIds = new List<int>();
+        observerIds.Add(playerId1);
+        observerIds.Add(playerId2);
         savedSquareChoices = new List<string>();
     }
 }
