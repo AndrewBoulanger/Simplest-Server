@@ -208,6 +208,16 @@ public class NetworkedServer : MonoBehaviour
             if(gr != null)
                 RemoveClientFromGameRoom(gr, id);
         }
+        else if(signifier == ClientToServerSignifiers.RequestTurnData)
+        {
+            GameRoom gr = GetRoomFromRoomID(int.Parse(csv[1]));
+            string newMsg = ServerToClientSignifiers.TurnData + "";
+            foreach (string turnData in gr.savedSquareChoices)
+            {
+                newMsg += "," + turnData;
+            }
+            SendMessageToClient(newMsg, id);
+        }
 
     }
 
@@ -359,6 +369,8 @@ public static class ClientToServerSignifiers
 
     public const int EndingTheGame = 11;
     public const int LeaveTheRoom = 12;
+
+    public const int RequestTurnData = 14;
 }
 
 public static class ServerToClientSignifiers
@@ -379,7 +391,7 @@ public static class ServerToClientSignifiers
     public const int EnteredGameRoomAsObserver = 12;
 
     public const int GameIsOver = 13;
-
+    public const int TurnData = 14;
 }
 
 
